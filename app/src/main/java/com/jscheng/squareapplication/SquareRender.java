@@ -2,6 +2,7 @@ package com.jscheng.squareapplication;
 
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
@@ -18,9 +19,17 @@ public class SquareRender implements GLSurfaceView.Renderer {
     private int mProgram;
     private int vPosition;
     private int vColor;
+    private int vMatrix;
+    private float[] mProjectMatrix;
+    private float[] mViewMatrix;
+    private float[] mResultMatrix;
+
     @Override
     public void onSurfaceCreated(GL10 gl10, EGLConfig eglConfig) {
         int result[] = new int[1];
+        mProjectMatrix = new float[16];
+        mViewMatrix = new float[16];
+        mResultMatrix = new float[16];
 
         mVertexShader = GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER);
         GLES20.glShaderSource(mVertexShader, vertexSource);
@@ -56,6 +65,7 @@ public class SquareRender implements GLSurfaceView.Renderer {
         }
         vPosition = GLES20.glGetAttribLocation(mProgram, "vPosition");
         vColor = GLES20.glGetUniformLocation(mProgram, "vColor");
+        vMatrix = GLES20.glGetUniformLocation(mProgram, "vMatrix");
 
         FloatBuffer vertexbuffer = getVertices();
         int[] vb = new int[1];
@@ -68,6 +78,34 @@ public class SquareRender implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceChanged(GL10 gl10, int width, int height) {
         GLES20.glViewport(0, 0, width, height);
+
+        // 宽高比
+        float ratio = (float) width / height;
+
+        // 透视投影
+        Matrix.frustumM(mProjectMatrix, // 变换的矩阵
+                0, // 矩阵起始位置
+                -ratio, // 相对观察点近面的左边距
+                ratio, // 相对观察点近面的右边距
+                -1, // 相对观察点近面的下边距
+                1, // 相对观察点近面的上边距
+                3, // 相对观察点近面距离
+                7// 相对观察远近面距离
+        );
+        // 相机位置
+        Matrix.setLookAtM(mViewMatrix,
+                0,
+                0,
+                0,
+                7.0f,
+                0f,
+                0f,
+                0f,
+                0f,
+                1.0f,
+                0.0f);
+        //计算变换举着
+        Matrix.multiplyMM(mResultMatrix, 0, mProjectMatrix,0, mViewMatrix, 0);
     }
 
     @Override
@@ -77,10 +115,11 @@ public class SquareRender implements GLSurfaceView.Renderer {
         GLES20.glUseProgram(mProgram);
         GLES20.glEnableVertexAttribArray(vPosition);
 //        GLES20.glVertexAttribPointer(vPosition, 3, GLES20.GL_FLOAT, false, 12, vertexbuffer);
+        GLES20.glEnableVertexAttribArray(vMatrix);
+        GLES20.glUniformMatrix4fv(vMatrix,1,false, mResultMatrix,0);
         GLES20.glUniform4f(vColor, 0.0f, 1.0f, 1.0f, 1.0f);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GLES20.glDisableVertexAttribArray(vPosition);
-
     }
 
     private FloatBuffer getVertices() {
@@ -100,8 +139,9 @@ public class SquareRender implements GLSurfaceView.Renderer {
 
     private final static String vertexSource =
             "attribute vec4 vPosition;\n" +
+            "uniform mat4 vMatrix;" +
             " void main() {\n" +
-            "     gl_Position = vPosition;\n" +
+            "     gl_Position = vMatrix * vPosition;\n" +
             " }";
 
     private final static String fragmentSource =
