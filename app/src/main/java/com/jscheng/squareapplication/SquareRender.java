@@ -104,7 +104,7 @@ public class SquareRender implements GLSurfaceView.Renderer {
                 0f,
                 1.0f,
                 0.0f);
-        //计算变换举着
+        //计算变换矩阵
         Matrix.multiplyMM(mResultMatrix, 0, mProjectMatrix,0, mViewMatrix, 0);
     }
 
